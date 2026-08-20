@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Session {{ session.date }} — Workouts{% endblock %}
+{% block content %}
+<div class="success-banner">Session saved!</div>
+
+<div class="flex mb">
+  <h1>{{ session.date }} &mdash; Day {{ session.day }}: {{ program[session.day].name }}</h1>
+</div>
+
+{% if session.rpe %}
+<div class="flex mb">
+  <span class="tag">RPE {{ session.rpe }}/10</span>
+</div>
+{% endif %}
+
+{% if session.day == 4 %}
+<div class="card">
+  <h2>Cardio</h2>
+  <table>
+    <tbody>
+      <tr><td>Time</td><td>{{ (session.time_minutes ~ ' min') if session.time_minutes else '—' }}</td></tr>
+      <tr><td>Distance</td><td>{{ (session.distance_miles ~ ' mi') if session.distance_miles else '—' }}</td></tr>
+      {% if session.time_minutes and session.distance_miles %}
+      <tr><td>Pace</td><td>{{ '%.2f'|format(session.time_minutes / session.distance_miles) }} min/mi</td></tr>
+      {% endif %}
+      {% if est_kcal %}
+      <tr><td>Est. Calories</td><td>{{ est_kcal }} kcal</td></tr>
+      <tr><td>Est. Power</td><td>{{ power_w }} W</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% if est_kcal %}
+  <p class="muted mt" style="font-size:0.78rem">Estimated from time, distance, and your most recent body weight — a physiological approximation, not a lab measurement.</p>
+  {% endif %}
+</div>
+{% else %}
+{% for exercise, sets in grouped.items() %}
+<div class="card">
+  <h2>{{ exercise }}</h2>
+  <table>
+    <thead><tr><th>Set</th><th>Weight</th><th>Reps</th></tr></thead>
+    <tbody>
+      {% for s in sets %}
+      <tr>
+        <td>{{ s.set_number }}</td>
+        <td>{{ s.weight ~ ' lbs' if s.weight else '—' }}</td>
+        <td>{{ s.reps if s.reps else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="mt">
+    <a href="{{ url_for('exercise_history', name=exercise) }}" class="btn secondary sm">View Progress</a>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if session.notes %}
+<div class="card">
+  <h3>Notes</h3>
+  <p>{{ session.notes }}</p>
+</div>
+{% endif %}
+
+<div class="flex">
+  <a href="{{ url_for('index') }}" class="btn secondary">Dashboard</a>
+  <a href="{{ url_for('history') }}" class="btn secondary">History</a>
+</div>
+{% endblock %}

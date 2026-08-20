@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Body Weight — Workouts{% endblock %}
+{% block content %}
+<h1>Body Weight</h1>
+
+<div class="card">
+  <h2>Log Today's Weight</h2>
+  <form method="POST" class="flex">
+    <div style="flex:1">
+      <label>Weight (lbs)</label>
+      <input type="number" name="weight" step="0.1" min="50" max="500" required>
+    </div>
+    <div style="flex:1">
+      <label>Date</label>
+      <input type="date" name="date" value="{{ today }}">
+    </div>
+    <div style="padding-top:1.4rem">
+      <button type="submit" class="btn">Save</button>
+    </div>
+  </form>
+</div>
+
+{% if entries %}
+<div class="card">
+  <h2>Trend</h2>
+  <canvas id="wChart" height="120"></canvas>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Date</th><th>Weight (lbs)</th></tr></thead>
+    <tbody>
+      {% for e in entries %}
+      <tr><td>{{ e.date }}</td><td>{{ e.weight }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+const entries = {{ entries | map(attribute='date') | list | tojson }};
+const weights = {{ entries | map(attribute='weight') | list | tojson }};
+const ctx = document.getElementById('wChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: entries.slice().reverse(),
+    datasets: [{
+      label: 'lbs',
+      data: weights.slice().reverse(),
+      borderColor: '#3ecf8e',
+      backgroundColor: 'rgba(62,207,142,0.1)',
+      tension: 0.3,
+      pointRadius: 4,
+      fill: true,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a44' } },
+      y: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a44' } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

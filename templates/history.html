@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}History — Workouts{% endblock %}
+{% block content %}
+<h1>Session History</h1>
+
+{% if sessions %}
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Day</th><th>Workout</th><th>RPE</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td>{{ s.date }}</td>
+        <td>{{ s.day }}</td>
+        <td>{{ program[s.day].name }}</td>
+        <td>{{ s.rpe if s.rpe else '—' }}</td>
+        <td><a href="{{ url_for('session_detail', session_id=s.id) }}" class="btn secondary sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p class="empty">No sessions logged yet.</p>
+</div>
+{% endif %}
+
+<h2 class="mt">Exercise Progress</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Exercise</th><th>Day</th><th></th></tr></thead>
+    <tbody>
+      {% for d, w in program.items() %}
+      {% for ex in w.exercises %}
+      <tr>
+        <td>{{ ex.name }}</td>
+        <td>Day {{ d }} &mdash; {{ w.name }}</td>
+        <td><a href="{{ url_for('exercise_history', name=ex.name) }}" class="btn secondary sm">Chart</a></td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

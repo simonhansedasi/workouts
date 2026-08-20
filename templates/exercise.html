@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} — Workouts{% endblock %}
+{% block content %}
+<h1>{{ name }}</h1>
+<a href="{{ url_for('history') }}" class="btn secondary sm mb">Back to History</a>
+
+{% if rows %}
+<div class="card">
+  <canvas id="exChart" height="120"></canvas>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Date</th><th>Set</th><th>Weight</th><th>Reps</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.date }}</td>
+        <td>{{ r.set_number }}</td>
+        <td>{{ r.weight ~ ' lbs' if r.weight else '—' }}</td>
+        <td>{{ r.reps if r.reps else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+fetch('{{ url_for("api_exercise", name=name) }}')
+  .then(r => r.json())
+  .then(data => {
+    const ctx = document.getElementById('exChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.map(d => d.date),
+        datasets: [
+          {
+            label: 'Max Weight (lbs)',
+            data: data.map(d => d.max_weight),
+            borderColor: '#4f8ef7',
+            backgroundColor: 'rgba(79,142,247,0.1)',
+            tension: 0.3,
+            fill: true,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Volume',
+            data: data.map(d => d.volume),
+            borderColor: '#7c5cbf',
+            backgroundColor: 'rgba(124,92,191,0.1)',
+            tension: 0.3,
+            fill: true,
+            yAxisID: 'y1',
+          }
+        ]
+      },
+      options: {
+        plugins: { legend: { labels: { color: '#e2e2f0' } } },
+        scales: {
+          x: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a44' } },
+          y: {
+            type: 'linear', position: 'left',
+            ticks: { color: '#4f8ef7' }, grid: { color: '#2a2a44' },
+            title: { display: true, text: 'Max Weight', color: '#4f8ef7' }
+          },
+          y1: {
+            type: 'linear', position: 'right',
+            ticks: { color: '#7c5cbf' }, grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Volume', color: '#7c5cbf' }
+          }
+        }
+      }
+    });
+  });
+</script>
+{% else %}
+<div class="card"><p class="empty">No data logged for this exercise yet.</p></div>
+{% endif %}
+{% endblock %}

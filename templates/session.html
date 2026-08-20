@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Day {{ day }}: {{ workout.name }} — Workouts{% endblock %}
+{% block content %}
+<div class="flex mb">
+  <h1>Day {{ day }}: {{ workout.name }}</h1>
+</div>
+<p class="muted mb">{{ workout.focus }}</p>
+
+<form method="POST">
+  {% if day == 4 %}
+  <div class="exercise-block">
+    <h4>Cardio</h4>
+
+    <div class="set-row" style="margin-bottom:0.2rem">
+      <span></span>
+      <label>Time (min)</label>
+      <label>Distance (mi)</label>
+    </div>
+
+    <div class="set-row">
+      <span class="set-num">1</span>
+      <input type="number" name="time_minutes"
+             step="0.5" min="0"
+             placeholder="{{ last_cardio.time_minutes if last_cardio and last_cardio.time_minutes else '' }}"
+             {% if last_cardio and last_cardio.time_minutes %}value="{{ last_cardio.time_minutes }}"{% endif %}>
+      <input type="number" name="distance_miles"
+             step="0.01" min="0"
+             placeholder="{{ last_cardio.distance_miles if last_cardio and last_cardio.distance_miles else '' }}"
+             {% if last_cardio and last_cardio.distance_miles %}value="{{ last_cardio.distance_miles }}"{% endif %}>
+    </div>
+  </div>
+  {% else %}
+  {% for ex in workout.exercises %}
+  {% set last = last_weights.get(ex.name, []) %}
+  <div class="exercise-block">
+    <h4>{{ ex.name }}</h4>
+    <div class="meta">{{ ex.sets }} sets &middot; {{ ex.reps }}</div>
+
+    <div class="set-row" style="margin-bottom:0.2rem">
+      <span></span>
+      <label>Weight (lbs)</label>
+      <label>Reps</label>
+    </div>
+
+    {% for s in range(1, ex.sets + 1) %}
+    {% set prev = last[s-1] if s <= last|length else none %}
+    <div class="set-row">
+      <span class="set-num">{{ s }}</span>
+      <input type="number" name="weight_{{ ex.name }}_{{ s }}"
+             step="0.5" min="0"
+             placeholder="{{ prev.weight if prev and prev.weight else '' }}"
+             {% if prev and prev.weight %}value="{{ prev.weight }}"{% endif %}>
+      <input type="text" name="reps_{{ ex.name }}_{{ s }}"
+             placeholder="{{ prev.reps if prev and prev.reps else ex.reps }}"
+             {% if prev and prev.reps %}value="{{ prev.reps }}"{% endif %}>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <div class="card">
+    <h2>How was it?</h2>
+    <p class="muted mb" style="font-size:0.82rem">RPE (Rate of Perceived Exertion) — 1 easy, 10 max effort</p>
+    <div class="rpe-row" id="rpeRow">
+      {% for i in range(1, 11) %}
+      <button type="button" class="rpe-btn" data-val="{{ i }}" onclick="selectRpe({{ i }})">{{ i }}</button>
+      {% endfor %}
+    </div>
+    <input type="hidden" name="rpe" id="rpeInput">
+
+    <div class="mt">
+      <label>Notes (optional)</label>
+      <textarea name="notes" rows="2" placeholder="Anything to remember..."></textarea>
+    </div>
+  </div>
+
+  <div class="flex">
+    <button type="submit" class="btn green">Save Session</button>
+    <a href="{{ url_for('index') }}" class="btn secondary">Cancel</a>
+  </div>
+</form>
+
+<script>
+function selectRpe(val) {
+  document.getElementById('rpeInput').value = val;
+  document.querySelectorAll('.rpe-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.val) === val);
+  });
+}
+</script>
+{% endblock %}

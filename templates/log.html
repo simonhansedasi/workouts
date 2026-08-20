@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Log — Workouts{% endblock %}
+{% block content %}
+<h1>Choose a Workout</h1>
+<div class="program-grid">
+  {% for d, w in program.items() %}
+  <a href="{{ url_for('log_session', day=d) }}" class="day-card">
+    <div class="day-num">Day {{ d }}</div>
+    <div class="day-name">{{ w.name }}</div>
+    <div class="day-focus">{{ w.focus }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

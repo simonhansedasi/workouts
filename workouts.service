@@ -1,0 +1,13 @@
+[Unit]
+Description=Workouts Tracker
+After=network.target
+
+[Service]
+User=simonhans
+WorkingDirectory=/mnt/serverdrive/coding/workouts
+ExecStart=/mnt/serverdrive/coding/workouts/venv/bin/python app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

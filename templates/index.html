@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Workouts{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="card">
+  <h2>Next Up — Day {{ next_day }}: {{ program[next_day].name }}</h2>
+  <p class="muted mb">{{ program[next_day].focus }}</p>
+  <a href="{{ url_for('log_day') }}" class="btn green">Start Workout</a>
+  <a href="{{ url_for('log_session', day=next_day) }}" class="btn secondary sm" style="margin-left:0.5rem">Quick Start Day {{ next_day }}</a>
+</div>
+
+{% if weights %}
+<div class="card">
+  <h2>Body Weight</h2>
+  <canvas id="weightChart" height="100"></canvas>
+</div>
+{% endif %}
+
+{% if volume_rows %}
+<div class="card">
+  <h2>Training Volume</h2>
+  <p class="muted mb" style="font-size:0.8rem">Weight x reps per session</p>
+  <canvas id="volumeChart" height="100"></canvas>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Recent Sessions</h2>
+  {% if sessions %}
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Day</th><th>Workout</th><th>RPE</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr>
+        <td>{{ s.date }}</td>
+        <td>{{ s.day }}</td>
+        <td>{{ program[s.day].name }}</td>
+        <td>{{ s.rpe if s.rpe else '—' }}</td>
+        <td><a href="{{ url_for('session_detail', session_id=s.id) }}" class="btn secondary sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No sessions yet. Log your first workout above.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>The Program</h2>
+  <div class="program-grid">
+    {% for d, w in program.items() %}
+    <a href="{{ url_for('log_session', day=d) }}" class="day-card {% if d == next_day %}next{% endif %}">
+      <div class="day-num">Day {{ d }}</div>
+      <div class="day-name">{{ w.name }}</div>
+      <div class="day-focus">{{ w.focus }}</div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if weights %}
+<script>
+const wCtx = document.getElementById('weightChart').getContext('2d');
+new Chart(wCtx, {
+  type: 'line',
+  data: {
+    labels: {{ weights | map(attribute='date') | list | tojson }},
+    datasets: [{
+      label: 'lbs',
+      data: {{ weights | map(attribute='weight') | list | tojson }},
+      borderColor: '#4f8ef7',
+      backgroundColor: 'rgba(79,142,247,0.1)',
+      tension: 0.3,
+      pointRadius: 4,
+      fill: true,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a44' } },
+      y: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a44' } }
+    }
+  }
+});
+</script>
+{% endif %}
+
+{% if volume_rows %}
+<script>
+const vCtx = document.getElementById('volumeChart').getContext('2d');
+new Chart(vCtx, {
+  type: 'bar',
+  data: {
+    labels: {{ volume_rows | map(attribute='date') | list | tojson }},
+    datasets: [{
+      label: 'Volume',
+      data: {{ volume_rows | map(attribute='volume') | list | tojson }},
+      backgroundColor: 'rgba(124,92,191,0.7)',
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a44' } },
+      y: { ticks: { color: '#8888aa' }, grid: { color: '#2a2a44' } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}
