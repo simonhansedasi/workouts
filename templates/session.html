@@ -8,27 +8,32 @@
 
 <form method="POST">
   {% if day == 4 %}
+  <p class="muted mb" style="font-size:0.82rem">One leg per mode segment &mdash; e.g. bike to the pool, swim, bike back. Leave a leg blank to skip it.</p>
+  {% for i in range(1, max_legs + 1) %}
+  {% set prev = last_legs[i-1] if i <= last_legs|length else none %}
   <div class="exercise-block">
-    <h4>Cardio</h4>
-
-    <div class="set-row" style="margin-bottom:0.2rem">
-      <span></span>
-      <label>Time (min)</label>
+    <h4>Leg {{ i }}</h4>
+    <div class="mode-radios mb">
+      {% for mode in cardio_modes %}
+      <label class="mode-radio">
+        <input type="radio" name="mode_{{ i }}" value="{{ mode }}" {% if prev and prev.mode == mode %}checked{% endif %}>
+        {{ mode.capitalize() }}
+      </label>
+      {% endfor %}
+    </div>
+    <div class="set-row" style="margin-bottom:0.2rem; grid-template-columns:1fr 1fr;">
+      <label>Time (mm:ss)</label>
       <label>Distance (mi)</label>
     </div>
-
-    <div class="set-row">
-      <span class="set-num">1</span>
-      <input type="number" name="time_minutes"
-             step="0.5" min="0"
-             placeholder="{{ last_cardio.time_minutes if last_cardio and last_cardio.time_minutes else '' }}"
-             {% if last_cardio and last_cardio.time_minutes %}value="{{ last_cardio.time_minutes }}"{% endif %}>
-      <input type="number" name="distance_miles"
-             step="0.01" min="0"
-             placeholder="{{ last_cardio.distance_miles if last_cardio and last_cardio.distance_miles else '' }}"
-             {% if last_cardio and last_cardio.distance_miles %}value="{{ last_cardio.distance_miles }}"{% endif %}>
+    <div class="set-row" style="grid-template-columns:1fr 1fr;">
+      <input type="text" name="time_{{ i }}" placeholder="{{ format_mmss(prev.time_seconds) if prev else 'e.g. 11:20' }}"
+             {% if prev and prev.time_seconds %}value="{{ format_mmss(prev.time_seconds) }}"{% endif %}>
+      <input type="number" name="distance_{{ i }}" step="0.01" min="0"
+             placeholder="{{ prev.distance_miles if prev and prev.distance_miles else '' }}"
+             {% if prev and prev.distance_miles %}value="{{ prev.distance_miles }}"{% endif %}>
     </div>
   </div>
+  {% endfor %}
   {% else %}
   {% for ex in workout.exercises %}
   {% set last = last_weights.get(ex.name, []) %}

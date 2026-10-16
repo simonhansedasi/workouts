@@ -161,6 +161,10 @@ label { display: block; color: var(--muted); font-size: 0.82rem; margin-bottom: 
 .rpe-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .rpe-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+.mode-radios { display: flex; gap: 1rem; flex-wrap: wrap; }
+.mode-radio { display: flex; align-items: center; gap: 0.35rem; color: var(--text); font-size: 0.88rem; width: auto; margin-bottom: 0; }
+.mode-radio input { width: auto; }
+
 .stat { text-align: center; }
 .stat .value { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
 .stat .label { font-size: 0.78rem; color: var(--muted); }
@@ -207,7 +211,8 @@ canvas { border-radius: 8px; }
   color: var(--text);
 }
 .day-card:hover { border-color: var(--accent); }
-.day-card.next { border-color: var(--green); }
+.day-card.available { border-color: var(--green); }
+.day-card.done { border-color: var(--red); opacity: 0.6; }
 .day-card .day-num { font-size: 0.75rem; color: var(--muted); }
 .day-card .day-name { font-weight: 700; font-size: 0.95rem; margin: 0.25rem 0; }
 .day-card .day-focus { font-size: 0.75rem; color: var(--muted); }

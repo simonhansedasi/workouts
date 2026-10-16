@@ -6,6 +6,22 @@ Personal 5-day workout tracker, Flask + SQLite, live on the Pi at `:5016` (`work
 
 ## Session log
 
+### 2026-09-11 (2)
+
+- **Multi-leg, multi-mode cardio logging.** Simon's Day 4 cardio can now be a mixed workout (e.g. bike to the pool, swim, bike back) instead of one time/distance pair. Replaced the two `sessions.time_minutes`/`distance_miles` columns (kept, unused going forward, for legacy rows) with a new `cardio_legs` table: `session_id, leg_number, mode (bike/run/swim), time_seconds, distance_miles`. Up to 4 legs per session, fixed rows in the form (no JS add/remove — simplest thing that covers the stated 3-leg/2-mode case); a leg with no mode radio selected is skipped on save.
+  - **Time entry**: replaced the `step=0.5` number input (only allowed increments of 30s) with a text field taking `mm:ss` (or `mm'ss"` stopwatch notation, or plain decimal minutes) via `parse_time_to_seconds()`/`format_seconds_to_mmss()`. Distance stays a decimal number input (already had `step=0.01`, that part wasn't actually broken).
+  - `app.py`: `log_session` POST loops `mode_{i}`/`time_{i}`/`distance_{i}` for `i` in 1..4 into `cardio_legs`; GET prefills leg rows from the most recent cardio session's legs. `session_detail` shows a per-leg table (mode, time, distance, pace) with a totals row; falls back to the old single-row display + calorie/power estimate only when a session has no `cardio_legs` rows (pre-migration data).
+  - **Calorie/power estimate scoped down**: `estimate_cardio_power()` is walk/run-specific (ACSM VO2 equations) and wasn't extended to bike/swim — multi-leg sessions just don't show an estimate. Legacy single-leg (run) sessions still get one.
+  - `notebooks/analysis_lib.py`: `load_cardio()` now sums `cardio_legs` per session (`COALESCE`d against the legacy columns) so old and new sessions both plot correctly in the trajectory notebook.
+  - Verified: parser round-trip (`11:20`, `11'20"`, plain minutes), full POST of a 3-leg bike/swim/bike session checked against the DB rows and totals, GET prefill from that session, legacy pre-migration session detail render, and `load_cardio()` aggregation across a mixed legacy+new DB — all via test-client/script against a throwaway DB, not the live one.
+  - Not yet deployed — Simon to review locally, then `./push_pi.sh`.
+
+### 2026-09-11 (1)
+
+- **Free workout selection instead of forced next-day.** Simon wanted to pick any workout, not just the suggested next one. Replaced the single "Next Up" day (`next_day = (last.day % 5) + 1`) with `get_completed_days(conn)`: days logged since the most recent Monday, reset to empty (all available) once all 5 are logged — so a day is "available" (green border) until done this week, then "done" (red border, dimmed) until the whole week is cleared, at which point everything goes green again. Applied to both the dashboard's program grid (`index.html`) and the `/log` picker grid (`log.html`); CSS: `.day-card.available` (green), `.day-card.done` (red, opacity 0.6) replacing the old single `.next` class. No change to logging/history flow — `log_session` still accepts any day, dates still drive the dashboard charts.
+  - Verified: test-client script inserted sessions into a throwaway DB covering empty week (all available), partial completion, all-5-done reset, and prior-week sessions not counting — all matched expected sets. `GET /` and `GET /log` both 200.
+  - Not yet deployed — Simon to review locally first, then `./push_pi.sh`.
+
 ### 2026-07-17
 
 - **Added cardio power estimate.** After Simon logged a real cardio session (20 min, 1.3 mi) and a body weight entry (216.4 lbs), asked to estimate power for cardio from the most recent body weight. Asked where it should live (notebook, live app, or both) — Simon said both. Implemented in both places, kept in sync manually (no shared import — notebooks intentionally never import `app.py`):

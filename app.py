@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 import sqlite3
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 app = Flask(__name__)
 DB = os.path.join(os.path.dirname(__file__), "workouts.db")
@@ -11,6 +11,8 @@ MILE_TO_METER = 1609.34
 KCAL_PER_LITER_O2 = 5.0  # rough approximation, RER ~1
 WALK_RUN_SPEED_THRESHOLD_M_PER_MIN = 134.0  # ~5 mph; ACSM switches equations here
 DEFAULT_BODYWEIGHT_LBS = 175.0
+CARDIO_MODES = ["bike", "run", "swim"]
+MAX_CARDIO_LEGS = 4
 
 PROGRAM = {
     1: {
@@ -98,6 +100,24 @@ def estimate_cardio_power(time_minutes, distance_miles, bodyweight_lbs):
     return round(est_kcal, 1), round(power_w, 1)
 
 
+def parse_time_to_seconds(s):
+    """Accepts 'mm:ss', 'mm'ss"' (stopwatch notation), or plain decimal minutes."""
+    s = s.strip().replace("'", ":").replace('"', "")
+    if not s:
+        return None
+    if ":" in s:
+        m, sec = s.split(":", 1)
+        return int(round(float(m or 0) * 60 + float(sec or 0)))
+    return int(round(float(s) * 60))
+
+
+def format_seconds_to_mmss(total_seconds):
+    if total_seconds is None:
+        return ""
+    m, sec = divmod(int(round(total_seconds)), 60)
+    return f"{m}:{sec:02d}"
+
+
 def init_db():
     conn = get_db()
     conn.executescript("""
@@ -124,6 +144,16 @@ def init_db():
             date    TEXT NOT NULL UNIQUE,
             weight  REAL NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS cardio_legs (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id      INTEGER NOT NULL,
+            leg_number      INTEGER NOT NULL,
+            mode            TEXT NOT NULL,
+            time_seconds    INTEGER,
+            distance_miles  REAL,
+            FOREIGN KEY (session_id) REFERENCES sessions(id)
+        );
     """)
 
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(sessions)")]
@@ -134,6 +164,16 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
+def get_completed_days(conn):
+    """Days already logged since the most recent Monday. Resets (empty set) once all 5 are done."""
+    week_start = (date.today() - timedelta(days=date.today().weekday())).isoformat()
+    rows = conn.execute(
+        "SELECT DISTINCT day FROM sessions WHERE date >= ?", (week_start,)
+    ).fetchall()
+    completed = {r["day"] for r in rows}
+    return completed if completed != set(PROGRAM.keys()) else set()
 
 
 @app.route("/")
@@ -151,11 +191,7 @@ def index():
         "SELECT * FROM sessions ORDER BY date DESC LIMIT 10"
     ).fetchall()
 
-    # Suggest next workout day
-    last = conn.execute(
-        "SELECT day FROM sessions ORDER BY date DESC LIMIT 1"
-    ).fetchone()
-    next_day = (last["day"] % 5) + 1 if last else 1
+    completed_days = get_completed_days(conn)
 
     # Per-session total volume (weight * reps for numeric reps)
     volume_rows = conn.execute("""
@@ -173,7 +209,7 @@ def index():
     return render_template(
         "index.html",
         program=PROGRAM,
-        next_day=next_day,
+        completed_days=completed_days,
         sessions=sessions,
         weights=weights,
         volume_rows=volume_rows,
@@ -185,7 +221,10 @@ def log_day():
     if request.method == "POST":
         day = int(request.form["day"])
         return redirect(url_for("log_session", day=day))
-    return render_template("log.html", program=PROGRAM)
+    conn = get_db()
+    completed_days = get_completed_days(conn)
+    conn.close()
+    return render_template("log.html", program=PROGRAM, completed_days=completed_days)
 
 
 @app.route("/log/<int:day>", methods=["GET", "POST"])
@@ -199,24 +238,27 @@ def log_session(day):
         today = date.today().isoformat()
 
         conn = get_db()
+        cur = conn.execute(
+            "INSERT INTO sessions (date, day, rpe, notes) VALUES (?, ?, ?, ?)",
+            (today, day, rpe or None, notes or None),
+        )
+        session_id = cur.lastrowid
 
         if day == 4:
-            time_minutes = request.form.get("time_minutes", "").strip()
-            distance_miles = request.form.get("distance_miles", "").strip()
-            cur = conn.execute(
-                "INSERT INTO sessions (date, day, rpe, notes, time_minutes, distance_miles) VALUES (?, ?, ?, ?, ?, ?)",
-                (today, day, rpe or None, notes or None,
-                 float(time_minutes) if time_minutes else None,
-                 float(distance_miles) if distance_miles else None),
-            )
-            session_id = cur.lastrowid
+            for i in range(1, MAX_CARDIO_LEGS + 1):
+                mode = request.form.get(f"mode_{i}", "").strip()
+                if mode not in CARDIO_MODES:
+                    continue
+                time_seconds = parse_time_to_seconds(request.form.get(f"time_{i}", ""))
+                distance_str = request.form.get(f"distance_{i}", "").strip()
+                distance_miles = float(distance_str) if distance_str else None
+                if time_seconds is None and distance_miles is None:
+                    continue
+                conn.execute(
+                    "INSERT INTO cardio_legs (session_id, leg_number, mode, time_seconds, distance_miles) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, i, mode, time_seconds, distance_miles),
+                )
         else:
-            cur = conn.execute(
-                "INSERT INTO sessions (date, day, rpe, notes) VALUES (?, ?, ?, ?)",
-                (today, day, rpe or None, notes or None),
-            )
-            session_id = cur.lastrowid
-
             exercises = PROGRAM[day]["exercises"]
             for ex in exercises:
                 ex_name = ex["name"]
@@ -235,15 +277,24 @@ def log_session(day):
 
     if day == 4:
         conn = get_db()
-        last_cardio = conn.execute(
-            "SELECT time_minutes, distance_miles FROM sessions WHERE day = 4 ORDER BY date DESC LIMIT 1"
+        last_session = conn.execute(
+            "SELECT id FROM sessions WHERE day = 4 ORDER BY date DESC LIMIT 1"
         ).fetchone()
+        last_legs = []
+        if last_session:
+            last_legs = conn.execute(
+                "SELECT * FROM cardio_legs WHERE session_id = ? ORDER BY leg_number",
+                (last_session["id"],),
+            ).fetchall()
         conn.close()
         return render_template(
             "session.html",
             day=day,
             workout=PROGRAM[day],
-            last_cardio=last_cardio,
+            last_legs=last_legs,
+            cardio_modes=CARDIO_MODES,
+            max_legs=MAX_CARDIO_LEGS,
+            format_mmss=format_seconds_to_mmss,
         )
 
     # Pull last logged weights for each exercise as defaults
@@ -282,12 +333,18 @@ def session_detail(session_id):
     ).fetchall()
 
     est_kcal = power_w = None
+    legs = []
     if session["day"] == 4:
-        bw_row = conn.execute("SELECT weight FROM body_weight ORDER BY date DESC LIMIT 1").fetchone()
-        bodyweight_lbs = bw_row["weight"] if bw_row else DEFAULT_BODYWEIGHT_LBS
-        est_kcal, power_w = estimate_cardio_power(
-            session["time_minutes"], session["distance_miles"], bodyweight_lbs
-        )
+        legs = conn.execute(
+            "SELECT * FROM cardio_legs WHERE session_id = ? ORDER BY leg_number", (session_id,)
+        ).fetchall()
+        if not legs:
+            # legacy single-leg sessions predating cardio_legs
+            bw_row = conn.execute("SELECT weight FROM body_weight ORDER BY date DESC LIMIT 1").fetchone()
+            bodyweight_lbs = bw_row["weight"] if bw_row else DEFAULT_BODYWEIGHT_LBS
+            est_kcal, power_w = estimate_cardio_power(
+                session["time_minutes"], session["distance_miles"], bodyweight_lbs
+            )
 
     conn.close()
 
@@ -296,6 +353,9 @@ def session_detail(session_id):
     for s in sets:
         grouped.setdefault(s["exercise"], []).append(s)
 
+    total_time = sum(l["time_seconds"] for l in legs if l["time_seconds"]) or None
+    total_distance = sum(l["distance_miles"] for l in legs if l["distance_miles"]) or None
+
     return render_template(
         "session_detail.html",
         session=session,
@@ -303,7 +363,21 @@ def session_detail(session_id):
         program=PROGRAM,
         est_kcal=est_kcal,
         power_w=power_w,
+        legs=legs,
+        total_time=total_time,
+        total_distance=total_distance,
+        format_mmss=format_seconds_to_mmss,
     )
+
+
+@app.route("/session/<int:session_id>/delete", methods=["POST"])
+def delete_session(session_id):
+    conn = get_db()
+    conn.execute("DELETE FROM logged_sets WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for("history"))
 
 
 @app.route("/history")

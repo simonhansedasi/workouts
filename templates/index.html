@@ -4,10 +4,8 @@
 <h1>Dashboard</h1>
 
 <div class="card">
-  <h2>Next Up — Day {{ next_day }}: {{ program[next_day].name }}</h2>
-  <p class="muted mb">{{ program[next_day].focus }}</p>
-  <a href="{{ url_for('log_day') }}" class="btn green">Start Workout</a>
-  <a href="{{ url_for('log_session', day=next_day) }}" class="btn secondary sm" style="margin-left:0.5rem">Quick Start Day {{ next_day }}</a>
+  <h2>Pick a Workout</h2>
+  <p class="muted mb">Green days are available this week. Pick any one below.</p>
 </div>
 
 {% if weights %}
@@ -53,8 +51,8 @@
   <h2>The Program</h2>
   <div class="program-grid">
     {% for d, w in program.items() %}
-    <a href="{{ url_for('log_session', day=d) }}" class="day-card {% if d == next_day %}next{% endif %}">
-      <div class="day-num">Day {{ d }}</div>
+    <a href="{{ url_for('log_session', day=d) }}" class="day-card {% if d in completed_days %}done{% else %}available{% endif %}">
+      <div class="day-num">Day {{ d }}{% if d in completed_days %} — done{% endif %}</div>
       <div class="day-name">{{ w.name }}</div>
       <div class="day-focus">{{ w.focus }}</div>
     </a>

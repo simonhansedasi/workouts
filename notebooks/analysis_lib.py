@@ -123,12 +123,26 @@ def add_cardio_power(cardio, bodyweight_lbs=None):
 
 
 def load_cardio(db_path=None):
-    """Returns a tidy DataFrame of cardio (Day 4) sessions: date, time_minutes, distance_miles, pace_min_per_mile."""
+    """Returns a tidy DataFrame of cardio (Day 4) sessions: date, time_minutes, distance_miles, pace_min_per_mile.
+
+    Sums across cardio_legs (multi-mode sessions, added 2026-09-11) per session,
+    falling back to the legacy sessions.time_minutes/distance_miles columns for
+    older single-leg entries that predate the cardio_legs table.
+    """
     if db_path is None:
         db_path = os.path.join(os.path.dirname(__file__), "data", "workouts_snapshot.db")
     conn = sqlite3.connect(db_path)
     sessions = pd.read_sql_query(
-        "SELECT date, rpe, notes, time_minutes, distance_miles FROM sessions WHERE day = 4 ORDER BY date",
+        """
+        SELECT s.date, s.rpe, s.notes,
+               COALESCE(SUM(cl.time_seconds), s.time_minutes * 60) / 60.0 AS time_minutes,
+               COALESCE(SUM(cl.distance_miles), s.distance_miles) AS distance_miles
+        FROM sessions s
+        LEFT JOIN cardio_legs cl ON cl.session_id = s.id
+        WHERE s.day = 4
+        GROUP BY s.id
+        ORDER BY s.date
+        """,
         conn,
     )
     conn.close()

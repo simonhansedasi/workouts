@@ -16,6 +16,28 @@
 {% if session.day == 4 %}
 <div class="card">
   <h2>Cardio</h2>
+  {% if legs %}
+  <table>
+    <thead><tr><th>Leg</th><th>Mode</th><th>Time</th><th>Distance</th><th>Pace</th></tr></thead>
+    <tbody>
+      {% for leg in legs %}
+      <tr>
+        <td>{{ leg.leg_number }}</td>
+        <td>{{ leg.mode.capitalize() }}</td>
+        <td>{{ format_mmss(leg.time_seconds) if leg.time_seconds else '—' }}</td>
+        <td>{{ (leg.distance_miles ~ ' mi') if leg.distance_miles else '—' }}</td>
+        <td>{{ '%.2f'|format(leg.time_seconds / 60 / leg.distance_miles) ~ ' min/mi' if leg.time_seconds and leg.distance_miles else '—' }}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td colspan="2"><strong>Total</strong></td>
+        <td><strong>{{ format_mmss(total_time) if total_time else '—' }}</strong></td>
+        <td><strong>{{ (total_distance ~ ' mi') if total_distance else '—' }}</strong></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
   <table>
     <tbody>
       <tr><td>Time</td><td>{{ (session.time_minutes ~ ' min') if session.time_minutes else '—' }}</td></tr>
@@ -31,6 +53,7 @@
   </table>
   {% if est_kcal %}
   <p class="muted mt" style="font-size:0.78rem">Estimated from time, distance, and your most recent body weight — a physiological approximation, not a lab measurement.</p>
+  {% endif %}
   {% endif %}
 </div>
 {% else %}
@@ -66,5 +89,8 @@
 <div class="flex">
   <a href="{{ url_for('index') }}" class="btn secondary">Dashboard</a>
   <a href="{{ url_for('history') }}" class="btn secondary">History</a>
+  <form action="{{ url_for('delete_session', session_id=session.id) }}" method="post" onsubmit="return confirm('Delete this session?')">
+    <button type="submit" class="btn secondary">Delete Session</button>
+  </form>
 </div>
 {% endblock %}
